@@ -1,0 +1,30 @@
+[[source]]
+url = "https://pypi.org/simple"
+verify_ssl = true
+name = "pypi"
+
+[packages]
+fastapi = "*"
+uvicorn = "*"
+alembic = "*"
+install = "*"
+python-dotenv = "*"
+sqlalchemy-utils = "*"
+geoalchemy2 = "*"
+python-jose = "*"
+passlib = "*"
+pydantic = {extras = ["email"], version = "*"}
+bcrypt = "*"
+asyncpg = "*"
+greenlet = "*"
+fastapi-utils = "*"
+pytest = "*"
+requests = "*"
+databases = {extras = ["postgresql"], version = "*"}
+trio = "*"
+faker = "*"
+
+[dev-packages]
+
+[requires]
+python_version = "3.8"
