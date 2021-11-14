@@ -8,11 +8,13 @@ from passlib.context import CryptContext
 from pydantic import BaseModel, constr, EmailStr, validator
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from appeals.repository.appeal_user_repository import IAppealUserRepository, AppealUserRepository
 from common.usecases import BaseUseCase
-from users.departments_repository import IDepartmentRepository, DepartmentRepository
 from users.models import User, SexTypes, UserRoles, Department, Employee
-from users.repository import IUserRepository, UserRepository
-from users.social_groups_repository import SocialGroupRepository
+from users.repository.departments_repository import IDepartmentRepository, DepartmentRepository
+from users.repository.social_groups_repository import SocialGroupRepository
+from users.repository.user_repository import IUserRepository, UserRepository
+from users.services.user_service import UserService
 
 
 class RegisterData(BaseModel):
@@ -132,7 +134,6 @@ class CityHeadSetupUC(BaseUseCase):
         old_users = await self.repository.get_by_role(role=UserRoles.CITY_HEAD_ROLE)
         for u in old_users:
             u.remove_role(UserRoles.CITY_HEAD_ROLE)
-        print(old_users)
         user.assign_role(UserRoles.CITY_HEAD_ROLE)
         user.position = self.data.position
 
@@ -220,30 +221,48 @@ class UpdateAdminUserData(BaseModel):
 
 class UpdateAdminUserUC(BaseUseCase):
     repository: IUserRepository
+    appeal_user_repos: IAppealUserRepository
+    service: UserService
 
-    def __init__(self, db: AsyncSession, data: UpdateAdminUserData):
+    _user: User = None
+    _is_old_admin = None
+
+    def __init__(self, db: AsyncSession, auth_user_id: int, data: UpdateAdminUserData):
         super().__init__(db)
+        self.auth_user_id = auth_user_id
         self.data = data
         self.repository = UserRepository(db=self.db)
+        self.appeal_user_repos = AppealUserRepository(db=self.db)
+        self.service = UserService(db=self.db)
 
-    async def exec(self) -> User:
-        user = await self.repository.get_by_id(pk=self.data.user_id)
+    async def get_user(self) -> User:
+        if not self._user:
+            self._user = await self.repository.get_by_id(pk=self.data.user_id)
+            self._is_old_admin = self._user.has_any_role(roles=[UserRoles.ADMIN_ROLE, UserRoles.MODERATOR_ROLE])
+        return self._user
+
+    async def _setup_roles(self):
+        user = await self.get_user()
         old_roles = list(
             {UserRoles.EMPLOYEE_ROLE, UserRoles.DEPARTMENT_HEAD_ROLE, UserRoles.CONTROL_ROLE} & set(user.roles)
         )
-        is_old_admin = user.has_any_role(roles=[UserRoles.ADMIN_ROLE, UserRoles.MODERATOR_ROLE])
 
         if not self.data.roles and not old_roles:
             user.assign_role(UserRoles.SIMPLE_USER_ROLE)
         else:
             user.roles = self.data.roles + old_roles
 
+    async def _setup_appeal_connections(self):
+        user = await self.get_user()
         if {UserRoles.ADMIN_ROLE, UserRoles.MODERATOR_ROLE} & set(self.data.roles):
-            ...
-        elif is_old_admin:
-            ...
+            await self.service.connect_to_all_appeals(user=user, creator_id=self.auth_user_id)
+        elif self._is_old_admin:
+            await self.appeal_user_repos.disconnect_from_appeals(user_id=user.id)
 
-        social_group = SocialGroupRepository(db=self.db).get_by_id(pk=self.data.social_group_id)
+    async def _update_user_data(self):
+        user = await self.get_user()
+        social_group = await SocialGroupRepository(db=self.db) \
+            .get_by_id(pk=self.data.social_group_id, raise_exception=True)
         user.first_name = self.data.first_name
         user.last_name = self.data.last_name
         user.patronymic = self.data.patronymic
@@ -251,6 +270,10 @@ class UpdateAdminUserUC(BaseUseCase):
         user.social_group = social_group
         user.is_active = self.data.is_active
 
-        await self.db.flush()
+    async def exec(self) -> User:
+        await self._setup_roles()
+        await self._setup_appeal_connections()
+        await self._update_user_data()
 
-        return user
+        await self.db.flush()
+        return await self.get_user()

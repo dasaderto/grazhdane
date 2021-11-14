@@ -1,18 +1,20 @@
 import pytest
 from faker import Faker
 from fastapi.testclient import TestClient
-from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.sql import Select
 
+from appeals.models import AppealStatus, AppealStatuses
+from appeals.repository.appeal_user_repository import AppealUserRepository
+from appeals.repository.user_appeal_repository import UserAppealRepository
+from appeals.seeds import UserAppealSeeder
 from grazhdane.app import app
-from users.departments_repository import DepartmentRepository
-from users.employee_repository import EmployeeRepository
 from users.models import UserRoles, User
-from users.repository import UserRepository
-from users.seeds import UserSeeder, DepartmentSeeder
+from users.repository.departments_repository import DepartmentRepository
+from users.repository.employee_repository import EmployeeRepository
+from users.repository.user_repository import UserRepository
+from users.seeds import UserSeeder, DepartmentSeeder, SocialGroupSeeder
 from users.usecases import CityHeadSetupUC, CityHeadSetupData, AddControlUserUC, AddControlUserData, \
-    AddEmployeeUserData, AddEmployeeUserUC
+    AddEmployeeUserData, AddEmployeeUserUC, UpdateAdminUserData, UpdateAdminUserUC
 
 client = TestClient(app)
 
@@ -110,3 +112,51 @@ async def test_add_department_employee_user(db: AsyncSession):
     assert UserRoles.EMPLOYEE_ROLE in new_employee.roles
     assert employee
     assert employee.user_id == user.id
+
+
+async def test_update_admin_user(db: AsyncSession):
+    new_user = await UserSeeder(db=db).seed()
+    new_user.roles = [UserRoles.EMPLOYEE_ROLE]
+
+    social_group = await SocialGroupSeeder(db=db).seed()
+
+    auth_user = await UserSeeder(db=db).seed()
+    appeals = [await UserAppealSeeder(db=db).random_or_seed(), await UserAppealSeeder(db=db).random_or_seed()]
+    appeals[0].status = AppealStatus(title=AppealStatuses.MODERATION, status_const=AppealStatuses.MODERATION)
+    appeals[1].status = AppealStatus(title=AppealStatuses.CONSIDERATION, status_const=AppealStatuses.CONSIDERATION)
+
+    db.add_all(appeals)
+    db.add(new_user)
+    db.add(social_group)
+    db.add(auth_user)
+    await db.commit()
+    faker = Faker()
+    data = UpdateAdminUserData(
+        user_id=new_user.id,
+        roles=[UserRoles.ADMIN_ROLE],
+        first_name=faker.first_name(),
+        last_name=faker.last_name(),
+        patronymic=faker.first_name(),
+        phone=faker.phone_number(),
+        social_group_id=social_group.id,
+        is_active=True,
+    )
+
+    await UpdateAdminUserUC(auth_user_id=auth_user.id, data=data, db=db).exec()
+    user_appeal_repository = UserAppealRepository(db=db)
+    appeal_user_repository = AppealUserRepository(db=db)
+    updated_new_user = await UserRepository(db=db).get_by_id(pk=new_user.id)
+
+    assert updated_new_user.roles == [UserRoles.ADMIN_ROLE, UserRoles.EMPLOYEE_ROLE]
+
+    all_appeal_ids = await user_appeal_repository.get_all_ids_for_connect_employee(exclude_appeals_ids=[])
+    user_appeals_ids = await appeal_user_repository.get_user_appeals_ids(user_id=new_user.id)
+    assert len(all_appeal_ids) == len(user_appeals_ids)
+
+    updated_user = await UserRepository(db=db).get_by_id(pk=new_user.id)
+    assert data.first_name == updated_user.first_name
+    assert data.last_name == updated_user.last_name
+    assert data.patronymic == updated_user.patronymic
+    assert data.phone == updated_user.phone
+    assert data.is_active == updated_user.is_active
+    assert data.social_group_id == updated_user.social_group_id

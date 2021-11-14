@@ -1,11 +1,10 @@
 from abc import abstractmethod
-from typing import Protocol, Optional, List, Iterable
+from typing import Protocol, Optional, Iterable
 
 from fastapi import HTTPException
 from sqlalchemy import select
 from sqlalchemy.engine import ChunkedIteratorResult
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import Session
 from sqlalchemy.sql import Select
 
 from users.models import SocialGroup
@@ -14,6 +13,10 @@ from users.models import SocialGroup
 class ISocialGroupRepository(Protocol):
     @abstractmethod
     async def get_by_id(self, pk: int, raise_exception: bool = False) -> Optional[SocialGroup]:
+        raise NotImplementedError
+
+    @abstractmethod
+    async def get_all(self) -> Iterable[SocialGroup]:
         raise NotImplementedError
 
 

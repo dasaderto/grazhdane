@@ -5,7 +5,7 @@ from sqlalchemy.dialects.postgresql import ARRAY
 from sqlalchemy.orm import relationship
 
 from grazhdane.models import TimeStampedModel
-from users.models import User, Department, Deputy, Employee, Attachment
+from users.models import User, Department, Deputy, Attachment
 
 
 class AppealStatuses(str, Enum):
@@ -39,13 +39,13 @@ class UserAppeal(TimeStampedModel):
     __tablename__ = "user_appeals"
 
     creator_id = Column(Integer, ForeignKey(User.id, ondelete="CASCADE"))
-    creator = relationship(User)
+    creator = relationship(User, foreign_keys=[creator_id])
 
     appeal_theme_id = Column(Integer, ForeignKey(AppealTheme.id, ondelete="CASCADE"))
-    appeal_theme = relationship(User)
+    appeal_theme = relationship(AppealTheme)
 
     executor_id = Column(Integer, ForeignKey(User.id, ondelete="CASCADE"))
-    executor = relationship(User)
+    executor = relationship(User, foreign_keys=[executor_id])
 
     deputy_id = Column(Integer, ForeignKey(Deputy.id, ondelete="CASCADE"))
     deputy = relationship(Deputy)
@@ -71,11 +71,11 @@ class AppealUser(TimeStampedModel):
     appeal_id = Column(Integer, ForeignKey(UserAppeal.id, ondelete="CASCADE"), nullable=False)
     appeal = relationship(UserAppeal)
 
-    employee_id = Column(Integer, ForeignKey(Employee.id, ondelete="CASCADE"))
-    employee = relationship(Employee)
+    employee_id = Column(Integer, ForeignKey(User.id, ondelete="CASCADE"))
+    employee = relationship(User, foreign_keys=[employee_id])
 
     creator_id = Column(Integer, ForeignKey(User.id, ondelete="CASCADE"))
-    creator = relationship(User)
+    creator = relationship(User, foreign_keys=[creator_id])
     comment = Column(String)
     closed_date = Column(DateTime)
     is_private = Column(Boolean, default=False)
@@ -84,6 +84,8 @@ class AppealUser(TimeStampedModel):
 class AppealHistoryAttachment(Attachment):
     __tablename__ = 'appeal_history_attachments'
     id = Column(Integer, ForeignKey(Attachment.id), primary_key=True)
+    appeal_history_id = Column(Integer, ForeignKey("appeal_history.id"))
+    appeal_history = relationship("AppealHistory", back_populates='attachments')
 
     __mapper_args__ = {
         'polymorphic_identity': 'appeal_history_attachments',
@@ -97,15 +99,15 @@ class AppealHistory(TimeStampedModel):
     appeal = relationship(UserAppeal)
 
     creator_id = Column(Integer, ForeignKey(User.id, ondelete="CASCADE"))
-    creator = relationship(User)
+    creator = relationship(User, foreign_keys=[creator_id])
 
     connected_person_id = Column(Integer, ForeignKey(User.id, ondelete="CASCADE"))
-    connected_person = relationship(User)
+    connected_person = relationship(User, foreign_keys=[connected_person_id])
 
     comment = Column(String, nullable=False)
     type = Column(String)
 
-    attachments = relationship(AppealHistoryAttachment, back_populates="histories")
+    attachments = relationship(AppealHistoryAttachment, back_populates="appeal_history")
 
     meta = Column(String)
     is_private = Column(Boolean, default=False)
@@ -115,13 +117,13 @@ class AppealChat(TimeStampedModel):
     __tablename__ = 'appeal_chats'
 
     user_id = Column(Integer, ForeignKey(User.id, ondelete="CASCADE"))
-    user = relationship(User)
+    user = relationship(User, foreign_keys=[user_id])
 
     creator_id = Column(Integer, ForeignKey(User.id, ondelete="CASCADE"))
-    creator = relationship(User)
+    creator = relationship(User, foreign_keys=[creator_id])
 
-    appeal_id = Column(Integer, ForeignKey(User.id, ondelete="CASCADE"), nullable=False)
-    appeal = relationship(User)
+    appeal_id = Column(Integer, ForeignKey(UserAppeal.id, ondelete="CASCADE"), nullable=False)
+    appeal = relationship(UserAppeal)
 
     message = Column(String(700), nullable=False)
     is_public = Column(Boolean, default=False)
