@@ -175,7 +175,10 @@ async def test_avatar_update(db: AsyncSession, async_client: AsyncClient):
     ]
     response: Response = await async_client.post("/users/update-avatar", files=files)
     assert response.status_code == 200
-    file_url = response.json().get('data').replace("/media/", "")
+    response_data = response.json()
+    file_url = response_data.get('data').replace("/media/", "")
     filepath = os.path.join(config.MEDIA_ROOT, file_url)
     assert os.path.isfile(filepath)
+    db_user = await UserRepository(db=db).get_by_id(pk=user.id)
+    assert db_user.avatar == response_data.get('data')
     os.remove(filepath)
