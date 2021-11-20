@@ -54,6 +54,7 @@ class User(TimeStampedModel):
     notify_active = Column(Boolean, default=False)
     birthday = Column(DateTime)
     address = Column(String)
+    avatar = Column(String)
 
     attachments = relationship("Attachment", back_populates="creator")
     comments = relationship('Comment', back_populates="creator")

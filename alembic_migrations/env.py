@@ -12,14 +12,13 @@ from sqlalchemy.ext.asyncio import AsyncEngine
 from grazhdane.app import APPLICATIONS
 from grazhdane.database import Base, SQLALCHEMY_DATABASE_URL
 
-
 config = context.config
 
 config.set_main_option("sqlalchemy.url", SQLALCHEMY_DATABASE_URL)
 # Interpret the config file for Python logging.
 # This line sets up loggers basically.
 fileConfig(config.config_file_name)
-
+exclude_tables = config.get_section('alembic:exclude').get('tables', '').split(',')
 # add your model's MetaData object here
 # for 'autogenerate' support
 # from myapp import mymodel

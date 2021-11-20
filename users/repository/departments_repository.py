@@ -16,6 +16,10 @@ class IDepartmentRepository(Protocol):
     async def get_all(self) -> List[Department]:
         raise NotImplementedError
 
+    @abstractmethod
+    async def get_by_director_id(self, director_id: int) -> Optional[Department]:
+        raise NotImplementedError
+
 
 class DepartmentRepository(BaseRepository, IDepartmentRepository):
     model = Department
@@ -30,3 +34,7 @@ class DepartmentRepository(BaseRepository, IDepartmentRepository):
     async def get_all(self) -> List[Department]:
         query = await self.exec_query(self.select(Department))
         return query.scalars().fetchall()
+
+    async def get_by_director_id(self, director_id: int) -> Optional[Department]:
+        query = await self.exec_query(self.select(Department).where(Department.director_id == director_id))
+        return query.scalars().first()

@@ -1,12 +1,15 @@
+import logging
+
 from dotenv import load_dotenv
 from fastapi import FastAPI
 
-from users.handlers import users_router
+from grazhdane.router import main_router
 
 load_dotenv()
+logger = logging.getLogger(__name__)
 
 app = FastAPI()
-app.include_router(users_router)
+app.include_router(main_router)
 
 APPLICATIONS = [
     'common',

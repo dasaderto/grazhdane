@@ -1,20 +1,25 @@
 import os
+import uuid
 from datetime import timedelta, datetime
 from typing import Optional, Tuple, List
 
+import aiofiles
 from fastapi import HTTPException
 from jose import jwt
 from passlib.context import CryptContext
 from pydantic import BaseModel, constr, EmailStr, validator
+from slugify import slugify
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from appeals.repository.appeal_user_repository import IAppealUserRepository, AppealUserRepository
 from common.usecases import BaseUseCase
+from grazhdane import config
 from users.models import User, SexTypes, UserRoles, Department, Employee
 from users.repository.departments_repository import IDepartmentRepository, DepartmentRepository
 from users.repository.social_groups_repository import SocialGroupRepository
 from users.repository.user_repository import IUserRepository, UserRepository
-from users.services.user_service import UserService
+from users.services.user_service import UserService, IUserService
+from users.types import JwtData
 
 
 class RegisterData(BaseModel):
@@ -41,6 +46,7 @@ class LoginData(BaseModel):
 
 
 class AuthUseCase(BaseUseCase):
+
     repository: IUserRepository
     __pwd_context: CryptContext = None
 
@@ -70,7 +76,7 @@ class AuthUseCase(BaseUseCase):
             return False
         return user
 
-    def create_access_token(self, data: dict, expires_delta: Optional[timedelta] = None) -> str:
+    def create_access_token(self, data: JwtData, expires_delta: Optional[timedelta] = None) -> str:
         to_encode = data.copy()
         if expires_delta:
             expire = datetime.utcnow() + expires_delta
@@ -102,7 +108,7 @@ class AuthUseCase(BaseUseCase):
         self.db.add(user)
         await self.db.commit()
 
-        return user, self.create_access_token(data={"user_id": user.id},
+        return user, self.create_access_token(data=JwtData(user_id=user.id),
                                               expires_delta=timedelta(
                                                   days=int(os.environ.get("ACCESS_TOKEN_EXPIRE_DAYS"))))
 
@@ -111,7 +117,7 @@ class AuthUseCase(BaseUseCase):
         if not user:
             raise HTTPException(status_code=401, detail="Invalid user data")
 
-        return user, self.create_access_token(data={"user_id": user.id},
+        return user, self.create_access_token(data=JwtData(user_id=user.id),
                                               expires_delta=timedelta(
                                                   days=int(os.environ.get("ACCESS_TOKEN_EXPIRE_DAYS"))))
 
@@ -222,7 +228,7 @@ class UpdateAdminUserData(BaseModel):
 class UpdateAdminUserUC(BaseUseCase):
     repository: IUserRepository
     appeal_user_repos: IAppealUserRepository
-    service: UserService
+    service: IUserService
 
     _user: User = None
     _is_old_admin = None
@@ -277,3 +283,33 @@ class UpdateAdminUserUC(BaseUseCase):
 
         await self.db.flush()
         return await self.get_user()
+
+
+class UpdateUserAvatarData(BaseModel):
+    filename: str
+    file: bytes
+
+
+class UpdateUserAvatarUC(BaseUseCase):
+    repository: IUserRepository
+
+    def __init__(self, db: AsyncSession, user: User, data: UpdateUserAvatarData):
+        super().__init__(db)
+        self.repository = UserRepository(db=self.db)
+        self.data = data
+        self.user = user
+
+    async def store_avatar(self) -> str:
+        splited_filename = self.data.filename.split(".")
+        ext = splited_filename[-1]
+        new_filename = slugify(f"{str(uuid.uuid4())}_{self.data.filename.replace(ext, '')}") + f".{ext}"
+        avatar_pub_path = os.path.join("storage", "avatars", new_filename)
+        async with aiofiles.open(os.path.join(config.MEDIA_ROOT, avatar_pub_path), mode='wb') as f:
+            await f.write(self.data.file)
+
+        return os.path.join(config.MEDIA_URL, avatar_pub_path)
+
+    async def exec(self) -> User:
+        self.user.avatar = await self.store_avatar()
+        await self.db.flush()
+        return self.user

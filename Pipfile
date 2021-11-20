@@ -13,16 +13,20 @@ sqlalchemy-utils = "*"
 geoalchemy2 = "*"
 python-jose = "*"
 passlib = "*"
-pydantic = {extras = ["email"], version = "*"}
+pydantic = { extras = ["email"], version = "*" }
 bcrypt = "*"
 asyncpg = "*"
 greenlet = "*"
 fastapi-utils = "*"
 pytest = "*"
 requests = "*"
-databases = {extras = ["postgresql"], version = "*"}
+databases = { extras = ["postgresql"], version = "*" }
 trio = "*"
 faker = "*"
+python-multipart = "*"
+httpx = "*"
+aiofiles = "*"
+python-slugify = "*"
 
 [dev-packages]
 

@@ -1,20 +1,26 @@
+import os
+
 import pytest
 from faker import Faker
 from fastapi.testclient import TestClient
+from httpx import AsyncClient, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from appeals.models import AppealStatus, AppealStatuses
 from appeals.repository.appeal_user_repository import AppealUserRepository
 from appeals.repository.user_appeal_repository import UserAppealRepository
 from appeals.seeds import UserAppealSeeder
+from grazhdane import config
 from grazhdane.app import app
 from users.models import UserRoles, User
 from users.repository.departments_repository import DepartmentRepository
 from users.repository.employee_repository import EmployeeRepository
 from users.repository.user_repository import UserRepository
 from users.seeds import UserSeeder, DepartmentSeeder, SocialGroupSeeder
-from users.usecases import CityHeadSetupUC, CityHeadSetupData, AddControlUserUC, AddControlUserData, \
-    AddEmployeeUserData, AddEmployeeUserUC, UpdateAdminUserData, UpdateAdminUserUC
+from users.usecases import (
+    CityHeadSetupUC, CityHeadSetupData, AddControlUserUC, AddControlUserData,
+    AddEmployeeUserData, AddEmployeeUserUC, UpdateAdminUserData, UpdateAdminUserUC,
+)
 
 client = TestClient(app)
 
@@ -160,3 +166,16 @@ async def test_update_admin_user(db: AsyncSession):
     assert data.phone == updated_user.phone
     assert data.is_active == updated_user.is_active
     assert data.social_group_id == updated_user.social_group_id
+
+
+async def test_avatar_update(db: AsyncSession):
+    user = await UserSeeder(db=db).seed()
+
+    async with AsyncClient(app=app, base_url=os.environ.get("APP_URL")) as ac:
+        files = [
+            ('file', ('foo.png', open(os.path.join(config.MEDIA_ROOT, 'ZiClJf-1920w.jpeg'), 'rb'), 'image/jpeg'))
+        ]
+        response: Response = await ac.post("/users/update-avatar", files=files)
+        assert response.status_code == 200
+        print(response.json())
+        assert False
