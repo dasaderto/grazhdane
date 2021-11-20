@@ -2,7 +2,6 @@ import os
 
 import pytest
 from faker import Faker
-from fastapi.testclient import TestClient
 from httpx import AsyncClient, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -10,8 +9,8 @@ from appeals.models import AppealStatus, AppealStatuses
 from appeals.repository.appeal_user_repository import AppealUserRepository
 from appeals.repository.user_appeal_repository import UserAppealRepository
 from appeals.seeds import UserAppealSeeder
+from conftest import authorize_client
 from grazhdane import config
-from grazhdane.app import app
 from users.models import UserRoles, User
 from users.repository.departments_repository import DepartmentRepository
 from users.repository.employee_repository import EmployeeRepository
@@ -21,8 +20,6 @@ from users.usecases import (
     CityHeadSetupUC, CityHeadSetupData, AddControlUserUC, AddControlUserData,
     AddEmployeeUserData, AddEmployeeUserUC, UpdateAdminUserData, UpdateAdminUserUC,
 )
-
-client = TestClient(app)
 
 pytestmark = pytest.mark.asyncio
 
@@ -168,14 +165,17 @@ async def test_update_admin_user(db: AsyncSession):
     assert data.social_group_id == updated_user.social_group_id
 
 
-async def test_avatar_update(db: AsyncSession):
+async def test_avatar_update(db: AsyncSession, async_client: AsyncClient):
     user = await UserSeeder(db=db).seed()
-
-    async with AsyncClient(app=app, base_url=os.environ.get("APP_URL")) as ac:
-        files = [
-            ('file', ('foo.png', open(os.path.join(config.MEDIA_ROOT, 'ZiClJf-1920w.jpeg'), 'rb'), 'image/jpeg'))
-        ]
-        response: Response = await ac.post("/users/update-avatar", files=files)
-        assert response.status_code == 200
-        print(response.json())
-        assert False
+    db.add(user)
+    await db.commit()
+    authorize_client(db=db, client=async_client, user=user)
+    files = [
+        ('file', ('foo.png', open(os.path.join(config.MEDIA_ROOT, 'ZiClJf-1920w.jpeg'), 'rb'), 'image/jpeg'))
+    ]
+    response: Response = await async_client.post("/users/update-avatar", files=files)
+    assert response.status_code == 200
+    file_url = response.json().get('data').replace("/media/", "")
+    filepath = os.path.join(config.MEDIA_ROOT, file_url)
+    assert os.path.isfile(filepath)
+    os.remove(filepath)

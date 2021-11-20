@@ -40,6 +40,11 @@ class UserSeeder:
     def __init__(self, db: AsyncSession):
         self.db = db
 
+    async def seed_admin(self) -> User:
+        user = await self.seed()
+        user.assign_role(UserRoles.ADMIN_ROLE)
+        return user
+
     async def seed(self) -> User:
         social_group = await SocialGroupSeeder(db=self.db).random_or_seed()
 
