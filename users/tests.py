@@ -18,7 +18,7 @@ from users.repository.user_repository import UserRepository
 from users.seeds import UserSeeder, DepartmentSeeder, SocialGroupSeeder
 from users.usecases import (
     CityHeadSetupUC, CityHeadSetupData, AddControlUserUC, AddControlUserData,
-    AddEmployeeUserData, AddEmployeeUserUC, UpdateAdminUserData, UpdateAdminUserUC,
+    AddEmployeeUserData, AddEmployeeUserUC, UpdateAdminUserData, UpdateAdminUserUC, ActivateUserUC,
 )
 
 pytestmark = pytest.mark.asyncio
@@ -35,7 +35,7 @@ async def test_city_head_setup_uc(db: AsyncSession):
 
     db.add(new_city_head_user)
     db.add(old_city_head_user)
-    await db.flush()
+    await db.commit()
 
     new_city_head = await CityHeadSetupUC(db=db, data=CityHeadSetupData(
         email=new_city_head_user.email,
@@ -56,7 +56,7 @@ async def test_add_control_user(db: AsyncSession):
     new_control_user = await UserSeeder(db).seed()
 
     db.add(new_control_user)
-    await db.flush()
+    await db.commit()
 
     await AddControlUserUC(db=db, data=AddControlUserData(
         email=new_control_user.email,
@@ -75,7 +75,7 @@ async def test_add_department_director_user(db: AsyncSession):
 
     db.add(new_director)
     db.add(department)
-    await db.flush()
+    await db.commit()
 
     data = AddEmployeeUserData(
         email=new_director.email,
@@ -99,7 +99,7 @@ async def test_add_department_employee_user(db: AsyncSession):
 
     db.add(new_user)
     db.add(department)
-    await db.flush()
+    await db.commit()
 
     data = AddEmployeeUserData(
         email=new_user.email,
@@ -169,6 +169,7 @@ async def test_avatar_update(db: AsyncSession, async_client: AsyncClient):
     user = await UserSeeder(db=db).seed()
     db.add(user)
     await db.commit()
+    print(user.id)
     authorize_client(db=db, client=async_client, user=user)
     files = [
         ('file', ('foo.png', open(os.path.join(config.MEDIA_ROOT, 'ZiClJf-1920w.jpeg'), 'rb'), 'image/jpeg'))
@@ -182,3 +183,17 @@ async def test_avatar_update(db: AsyncSession, async_client: AsyncClient):
     db_user = await UserRepository(db=db).get_by_id(pk=user.id)
     assert db_user.avatar == response_data.get('data')
     os.remove(filepath)
+
+
+async def test_user_activation(db: AsyncSession):
+    user = await UserSeeder(db=db).seed()
+    db.add(user)
+    await db.commit()
+
+    await ActivateUserUC(db=db, user_id=user.id, is_activated=False).exec()
+    db_user = await UserRepository(db).get_by_id(pk=user.id)
+    assert not db_user.is_active
+
+    await ActivateUserUC(db=db, user_id=user.id, is_activated=True).exec()
+    db_user = await UserRepository(db).get_by_id(pk=user.id)
+    assert db_user.is_active

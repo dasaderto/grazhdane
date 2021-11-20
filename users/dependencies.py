@@ -1,6 +1,7 @@
 import os
+from typing import List
 
-from fastapi import HTTPException, Depends
+from fastapi import HTTPException, Depends, Request
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from jose import jwt, JWTError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -33,3 +34,19 @@ async def get_admin_authenticated_user(auth_user: User = Depends(get_authenticat
         raise HTTPException(status_code=403, detail="User has no admin role")
 
     return auth_user
+
+
+class HTTPHeaderAuthentication:
+    def __init__(self, *, scopes: List[UserRoles]):
+        self.scopes = list(set(scopes))
+
+    async def __call__(self, request: Request, auth_user: User = Depends(get_authenticated_user)) -> User:
+        if not auth_user.has_any_role(self.scopes):
+            raise HTTPException(
+                status_code=401, detail=f"{auth_user.email} is not authorized to access this endpoint"
+            )
+        return auth_user
+
+
+def get_auth_dependency(roles: List[UserRoles]) -> Depends:
+    return Depends(HTTPHeaderAuthentication(scopes=roles))

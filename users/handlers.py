@@ -6,12 +6,13 @@ from fastapi_utils.cbv import cbv
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from grazhdane.database import get_async_db
-from users.dependencies import get_authenticated_user, get_admin_authenticated_user
+from users.dependencies import get_authenticated_user, get_auth_dependency
 from users.entities import UserEntity
+from users.models import UserRoles
 from users.resources import AuthUserOutResource, UserOutResource
 from users.usecases import (
     AuthUseCase, RegisterData, LoginData, CityHeadSetupUC, CityHeadSetupData, AddControlUserData,
-    AddControlUserUC, AddEmployeeUserData, AddEmployeeUserUC, UpdateUserAvatarUC, UpdateUserAvatarData,
+    AddControlUserUC, AddEmployeeUserData, AddEmployeeUserUC, UpdateUserAvatarUC, UpdateUserAvatarData, ActivateUserUC,
 )
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
@@ -49,7 +50,7 @@ class UserHandler:
         }
 
     @users_router.post("/set/city-head", response_model=UserOutResource)
-    async def set_city_head(self, data: CityHeadSetupData, admin_user=Depends(get_admin_authenticated_user)):
+    async def set_city_head(self, data: CityHeadSetupData, admin_user=get_auth_dependency([UserRoles.ADMIN_ROLE])):
         user = await CityHeadSetupUC(db=self.db, data=data).exec()
 
         return {
@@ -57,7 +58,7 @@ class UserHandler:
         }
 
     @users_router.post("/add/control-user", response_model=UserOutResource)
-    async def add_control_user(self, data: AddControlUserData, admin_user=Depends(get_admin_authenticated_user)):
+    async def add_control_user(self, data: AddControlUserData, admin_user=get_auth_dependency([UserRoles.ADMIN_ROLE])):
         user = await AddControlUserUC(db=self.db, data=data).exec()
 
         return {
@@ -65,7 +66,8 @@ class UserHandler:
         }
 
     @users_router.post("/add/employee-user", response_model=UserOutResource)
-    async def add_employee_user(self, data: AddEmployeeUserData, admin_user=Depends(get_admin_authenticated_user)):
+    async def add_employee_user(self, data: AddEmployeeUserData,
+                                admin_user=get_auth_dependency([UserRoles.ADMIN_ROLE])):
         user = await AddEmployeeUserUC(db=self.db, data=data).exec()
 
         return {
@@ -73,7 +75,8 @@ class UserHandler:
         }
 
     @users_router.post("/set/employee-user", response_model=UserOutResource)
-    async def set_employee_user(self, data: AddEmployeeUserData, admin_user=Depends(get_admin_authenticated_user)):
+    async def set_employee_user(self, data: AddEmployeeUserData,
+                                admin_user=get_auth_dependency([UserRoles.ADMIN_ROLE])):
         user = await AddEmployeeUserUC(db=self.db, data=data).exec()
 
         return {
@@ -87,4 +90,13 @@ class UserHandler:
 
         return {
             "data": user.avatar
+        }
+
+    @users_router.post("/activate/user/{user_id}/{is_activated}", response_model=UserOutResource)
+    async def user_activate(self, user_id: int, is_activated: int,
+                            auth_user=get_auth_dependency([UserRoles.ADMIN_ROLE, UserRoles.MODERATOR_ROLE])):
+        user = await ActivateUserUC(db=self.db, user_id=user_id, is_activated=bool(is_activated)).exec()
+
+        return {
+            'data': UserEntity.from_orm(user)
         }

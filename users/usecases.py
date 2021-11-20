@@ -143,7 +143,7 @@ class CityHeadSetupUC(BaseUseCase):
         user.assign_role(UserRoles.CITY_HEAD_ROLE)
         user.position = self.data.position
 
-        await self.db.flush()
+        await self.db.commit()
 
         return user
 
@@ -165,7 +165,7 @@ class AddControlUserUC(BaseUseCase):
         user = await self.repository.get_by_email(self.data.email, raise_exception=True)
         user.assign_role(role=UserRoles.CONTROL_ROLE)
         user.position = self.data.position
-        await self.db.flush()
+        await self.db.commit()
 
         return user
 
@@ -209,7 +209,7 @@ class AddEmployeeUserUC(BaseUseCase):
             user.assign_role(UserRoles.EMPLOYEE_ROLE)
             self._create_employee(user=user, department=department)
 
-        await self.db.flush()
+        await self.db.commit()
 
         return user
 
@@ -281,7 +281,7 @@ class UpdateAdminUserUC(BaseUseCase):
         await self._setup_appeal_connections()
         await self._update_user_data()
 
-        await self.db.flush()
+        await self.db.commit()
         return await self.get_user()
 
 
@@ -311,5 +311,23 @@ class UpdateUserAvatarUC(BaseUseCase):
 
     async def exec(self) -> User:
         self.user.avatar = await self.store_avatar()
-        await self.db.flush()
+        await self.db.commit()
         return self.user
+
+
+class ActivateUserUC(BaseUseCase):
+    user_repos: IUserRepository
+
+    def __init__(self, db: AsyncSession, user_id: int, is_activated: bool):
+        super().__init__(db)
+        self.user_id = user_id
+        self.is_activated = is_activated
+
+        self.user_repos = UserRepository(db=db)
+
+    async def exec(self) -> User:
+        user = await self.user_repos.get_by_id(pk=self.user_id)
+        user.is_active = self.is_activated
+        await self.db.commit()
+
+        return user
