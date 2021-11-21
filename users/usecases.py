@@ -326,7 +326,7 @@ class ActivateUserUC(BaseUseCase):
         self.user_repos = UserRepository(db=db)
 
     async def exec(self) -> User:
-        user = await self.user_repos.get_by_id(pk=self.user_id)
+        user = await self.user_repos.get_by_id(pk=self.user_id, raise_exception=True)
         user.is_active = self.is_activated
         await self.db.commit()
 

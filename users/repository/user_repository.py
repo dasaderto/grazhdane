@@ -16,7 +16,7 @@ class IUserRepository(Protocol):
         raise NotImplementedError
 
     @abstractmethod
-    async def get_by_id(self, pk: int) -> Optional[User]:
+    async def get_by_id(self, pk: int, raise_exception: bool = False) -> Optional[User]:
         raise NotImplementedError
 
     @abstractmethod
@@ -32,9 +32,12 @@ class UserRepository(IUserRepository):
     def __init__(self, db: AsyncSession):
         self.db = db
 
-    async def get_by_id(self, pk: int) -> Optional[User]:
+    async def get_by_id(self, pk: int, raise_exception: bool = False) -> Optional[User]:
         query: ChunkedIteratorResult = await self.db.execute(select(User).where(User.id == pk))
-        return query.scalars().first()
+        user = query.scalars().first()
+        if not user and raise_exception:
+            raise HTTPException(status_code=404, detail=f"Undefined user with {pk=}")
+        return user
 
     async def get_by_email(self, email: str, raise_exception: bool = False) -> Optional[User]:
         query: ChunkedIteratorResult = await self.db.execute(select(User).where(User.email == email))
