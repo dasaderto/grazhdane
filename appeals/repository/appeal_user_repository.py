@@ -1,6 +1,7 @@
 from abc import abstractmethod
-from typing import Protocol, List
+from typing import Protocol, List, Optional
 
+from fastapi import HTTPException
 from sqlalchemy import select, delete
 from sqlalchemy.engine import ChunkedIteratorResult
 from sqlalchemy.sql import Select, Delete
@@ -20,6 +21,14 @@ class IAppealUserRepository(Protocol):
 
     @abstractmethod
     async def disconnect_from_appeals(self, user_id: int) -> int:
+        raise NotImplementedError
+
+    @abstractmethod
+    async def get_by_id(self, pk: int, raise_exception: bool = False) -> Optional[AppealUser]:
+        raise NotImplementedError
+
+    @abstractmethod
+    async def get_by_appeal_id(self, appeal_id: int) -> List[AppealUser]:
         raise NotImplementedError
 
 
@@ -52,3 +61,14 @@ class AppealUserRepository(BaseRepository, IAppealUserRepository):
     async def disconnect_from_appeals(self, user_id: int) -> int:
         delete_query: Delete = delete(AppealUser)
         return await self.db.execute(delete_query.where(AppealUser.employee_id == user_id))
+
+    async def get_by_id(self, pk: int, raise_exception: bool = False) -> Optional[AppealUser]:
+        query = await self.exec_query(self.select(self.model).where(self.model.id == pk))
+        appeal_user = query.scalars().first()
+        if not appeal_user and raise_exception:
+            raise HTTPException(status_code=404, detail=f"Undefined appeal user with {pk=}")
+        return appeal_user
+
+    async def get_by_appeal_id(self, appeal_id: int) -> List[AppealUser]:
+        query = await self.exec_query(self.select(self.model).where(self.model.appeal_id == appeal_id))
+        return query.scalars().fetchall()

@@ -1,7 +1,6 @@
 import logging
 
 from fastapi import Depends, APIRouter, UploadFile, File
-from fastapi.security import OAuth2PasswordBearer
 from fastapi_utils.cbv import cbv
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -14,8 +13,6 @@ from users.usecases import (
     AuthUseCase, RegisterData, LoginData, CityHeadSetupUC, CityHeadSetupData, AddControlUserData,
     AddControlUserUC, AddEmployeeUserData, AddEmployeeUserUC, UpdateUserAvatarUC, UpdateUserAvatarData, ActivateUserUC,
 )
-
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 
 users_router = APIRouter()
 

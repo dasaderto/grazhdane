@@ -19,6 +19,7 @@ config.set_main_option("sqlalchemy.url", SQLALCHEMY_DATABASE_URL)
 # This line sets up loggers basically.
 fileConfig(config.config_file_name)
 exclude_tables = config.get_section('alembic:exclude').get('tables', '').split(',')
+
 # add your model's MetaData object here
 # for 'autogenerate' support
 # from myapp import mymodel
@@ -62,7 +63,7 @@ def run_migrations_offline():
 
 
 def do_run_migrations(connection):
-    context.configure(connection=connection, target_metadata=target_metadata)
+    context.configure(connection=connection, target_metadata=target_metadata, )
 
     with context.begin_transaction():
         context.run_migrations()

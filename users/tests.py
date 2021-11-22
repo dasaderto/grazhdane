@@ -121,7 +121,7 @@ async def test_update_admin_user(db: AsyncSession):
     new_user = await UserSeeder(db=db).seed()
     new_user.roles = [UserRoles.EMPLOYEE_ROLE]
 
-    social_group = await SocialGroupSeeder(db=db).seed()
+    social_group = await SocialGroupSeeder(db=db).random_or_seed()
 
     auth_user = await UserSeeder(db=db).seed()
     appeals = [await UserAppealSeeder(db=db).random_or_seed(), await UserAppealSeeder(db=db).random_or_seed()]
@@ -169,10 +169,9 @@ async def test_avatar_update(db: AsyncSession, async_client: AsyncClient):
     user = await UserSeeder(db=db).seed()
     db.add(user)
     await db.commit()
-    print(user.id)
     authorize_client(db=db, client=async_client, user=user)
     files = [
-        ('file', ('foo.png', open(os.path.join(config.MEDIA_ROOT, 'ZiClJf-1920w.jpeg'), 'rb'), 'image/jpeg'))
+        ('file', ('foo.png', open(os.path.join(config.MEDIA_ROOT, 'testfile.jpeg'), 'rb'), 'image/jpeg'))
     ]
     response: Response = await async_client.post("/users/update-avatar", files=files)
     assert response.status_code == 200

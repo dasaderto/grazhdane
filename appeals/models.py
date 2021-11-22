@@ -1,6 +1,7 @@
-from enum import Enum
+import enum
 
-from sqlalchemy import Column, String, Boolean, DateTime, ForeignKey, Integer, SmallInteger
+from geoalchemy2 import Geometry
+from sqlalchemy import Column, String, Boolean, DateTime, ForeignKey, Integer, SmallInteger, Enum
 from sqlalchemy.dialects.postgresql import ARRAY
 from sqlalchemy.orm import relationship
 
@@ -8,7 +9,7 @@ from grazhdane.models import TimeStampedModel
 from users.models import User, Department, Deputy, Attachment
 
 
-class AppealStatuses(str, Enum):
+class AppealStatuses(str, enum.Enum):
     MODERATION = 'MODERATION'
     CONSIDERATION = 'CONSIDERATION'
     IN_WORK = 'IN_WORK'
@@ -23,7 +24,7 @@ class AppealStatus(TimeStampedModel):
     __tablename__ = 'appeal_statuses'
 
     title = Column(String, nullable=False)
-    status_const: Column = Column(String, nullable=False)
+    status_const: Column = Column(Enum(AppealStatuses), nullable=False)
 
 
 class AppealTheme(TimeStampedModel):
@@ -35,8 +36,21 @@ class AppealTheme(TimeStampedModel):
     is_hidden = Column(Boolean, default=False)
 
 
+class UserAppealAttachment(Attachment):
+    __tablename__ = 'user_appeal_attachments'
+    id = Column(Integer, ForeignKey(Attachment.id), primary_key=True)
+    user_appeal_id = Column(Integer, ForeignKey("user_appeals.id"))
+    user_appeal = relationship("UserAppeal", back_populates='attachments')
+
+    __mapper_args__ = {
+        'polymorphic_identity': 'user_appeal_attachments',
+    }
+
+
 class UserAppeal(TimeStampedModel):
     __tablename__ = "user_appeals"
+
+    attachments = relationship(UserAppealAttachment, back_populates="user_appeal")
 
     creator_id = Column(Integer, ForeignKey(User.id, ondelete="CASCADE"))
     creator = relationship(User, foreign_keys=[creator_id])
@@ -63,6 +77,7 @@ class UserAppeal(TimeStampedModel):
     is_hidden = Column(Boolean, default=False)
     expired_at = Column(DateTime)
     users_voted = Column(ARRAY(Integer))
+    locate = Column(Geometry('POINT'))
 
 
 class AppealUser(TimeStampedModel):
@@ -92,6 +107,26 @@ class AppealHistoryAttachment(Attachment):
     }
 
 
+class AppealHistoryTypes(str, enum.Enum):
+    APPEAL_CREATED = 'APPEAL_CREATED'
+    APPEAL_TO_WORK = 'APPEAL_TO_WORK'
+    APPEAL_MODERATION = 'APPEAL_MODERATION'
+    DEPARTMENT_ASSIGNED = 'DEPARTMENT_ASSIGNED'
+    APPEAL_DELEGATE = 'APPEAL_DELEGATE'
+    APPEAL_RESOLVED = 'APPEAL_RESOLVED'
+    APPEAL_REJECTED = 'REJECTED'
+    APPEAL_READ = 'APPEAL_READ'
+    GOROD_CLOSED = 'GOROD_CLOSED'
+    BOSS_CLOSED = 'BOSS_CLOSED'
+    BOSS_REJECTED = 'BOSS_REJECTED'
+    CONTROL_REJECTED = 'CONTROL_REJECTED'
+    DEPARTMENT_CONNECTED = 'DEPARTMENT_CONNECTED'
+    ORGANIZATION_CONNECTED = 'ORGANIZATION_CONNECTED'
+    DEPUTY_CONNECTED = 'DEPUTY_CONNECTED'
+    NEW_MESSAGE = 'NEW_MESSAGE'
+    COMPANY_CONNECTED = 'COMPANY_CONNECTED'
+
+
 class AppealHistory(TimeStampedModel):
     __tablename__ = 'appeal_history'
 
@@ -105,7 +140,7 @@ class AppealHistory(TimeStampedModel):
     connected_person = relationship(User, foreign_keys=[connected_person_id])
 
     comment = Column(String, nullable=False)
-    type = Column(String)
+    type = Column(Enum(AppealHistoryTypes))
 
     attachments = relationship(AppealHistoryAttachment, back_populates="appeal_history")
 

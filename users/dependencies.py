@@ -37,10 +37,12 @@ async def get_admin_authenticated_user(auth_user: User = Depends(get_authenticat
 
 
 class HTTPHeaderAuthentication:
-    def __init__(self, *, scopes: List[UserRoles]):
+    def __init__(self, *, scopes: List[UserRoles] = None):
         self.scopes = list(set(scopes))
 
     async def __call__(self, request: Request, auth_user: User = Depends(get_authenticated_user)) -> User:
+        if not self.scopes:
+            return auth_user
         if not auth_user.has_any_role(self.scopes):
             raise HTTPException(
                 status_code=401, detail=f"{auth_user.email} is not authorized to access this endpoint"

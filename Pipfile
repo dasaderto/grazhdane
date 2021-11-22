@@ -27,6 +27,7 @@ python-multipart = "*"
 httpx = "*"
 aiofiles = "*"
 python-slugify = "*"
+fastapi-pagination = "*"
 
 [dev-packages]
 
