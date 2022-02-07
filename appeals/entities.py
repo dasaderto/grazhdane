@@ -1,10 +1,10 @@
 from datetime import datetime
-from typing import Optional, List
-
 from pydantic import BaseModel
+from typing import Optional, List
 
 
 class UserAppealEntity(BaseModel):
+    id: int
     creator_id: int
     appeal_theme_id: int
     executor_id: Optional[int]

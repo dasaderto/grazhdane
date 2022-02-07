@@ -1,13 +1,10 @@
 from abc import abstractmethod
+from fastapi import HTTPException
+from sqlalchemy.ext.asyncio import AsyncSession
 from typing import Protocol, Optional, List, Iterable
 
-from fastapi import HTTPException
-from sqlalchemy import select
-from sqlalchemy.engine import ChunkedIteratorResult
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.sql import Select
-
-from users.models import User, UserRoles
+from common.repository import BaseRepository
+from users.models import User, UserRoles, Department
 
 
 class IUserRepository(Protocol):
@@ -27,30 +24,42 @@ class IUserRepository(Protocol):
     async def get_by_role(self, role: UserRoles) -> Optional[Iterable[User]]:
         raise NotImplementedError
 
+    @abstractmethod
+    async def get_department_director(self, department_id: int) -> User:
+        raise NotImplementedError
 
-class UserRepository(IUserRepository):
+
+class UserRepository(BaseRepository, IUserRepository):
+    model = User
+
     def __init__(self, db: AsyncSession):
-        self.db = db
+        super().__init__(db)
 
     async def get_by_id(self, pk: int, raise_exception: bool = False) -> Optional[User]:
-        query: ChunkedIteratorResult = await self.db.execute(select(User).where(User.id == pk))
+        query = await self.exec_query(self.select(self.model).where(User.id == pk))
         user = query.scalars().first()
         if not user and raise_exception:
             raise HTTPException(status_code=404, detail=f"Undefined user with {pk=}")
         return user
 
     async def get_by_email(self, email: str, raise_exception: bool = False) -> Optional[User]:
-        query: ChunkedIteratorResult = await self.db.execute(select(User).where(User.email == email))
+        query = await self.exec_query(self.select(self.model).where(User.email == email))
         user = query.scalars().first()
         if not user and raise_exception:
             raise HTTPException(status_code=404, detail=f"Undefined user with email {email}")
         return user
 
     async def get_all(self) -> List[User]:
-        query: ChunkedIteratorResult = await self.db.execute(select(User))
+        query = await self.exec_query(self.select(self.model))
         return query.scalars().fetchall()
 
     async def get_by_role(self, role: UserRoles) -> Optional[Iterable[User]]:
-        select_users: Select = select(User)
-        query: ChunkedIteratorResult = await self.db.execute(select_users.where(User.roles.contains([role])))
+        query = await self.exec_query(self.select(self.model).where(User.roles.contains([role])))
         return query.scalars().fetchall()
+
+    async def get_department_director(self, department_id: int) -> User:
+        select_query = self.select(self.model) \
+            .join(Department, onclause=User.id == Department.director_id) \
+            .where(Department.id == department_id)
+        query = await self.exec_query(select_query)
+        return query.scalars().first()

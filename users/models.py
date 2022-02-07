@@ -1,10 +1,9 @@
 from enum import Enum
-from typing import List
-
 from sqlalchemy import Column, String, Boolean, DateTime, ForeignKey, Integer
 from sqlalchemy.dialects.postgresql import ARRAY
 from sqlalchemy.orm import relationship
 from sqlalchemy_utils import EmailType
+from typing import List
 
 from grazhdane.models import TimeStampedModel
 
@@ -57,9 +56,9 @@ class User(TimeStampedModel):
     avatar = Column(String)
 
     attachments = relationship("Attachment", back_populates="creator")
-    comments = relationship('Comment', back_populates="creator")
-    providers = relationship('Provider', back_populates="user")
-    service_members = relationship('ServiceMember', back_populates="member")
+    comments = relationship("Comment", back_populates="creator")
+    providers = relationship("Provider", back_populates="user")
+    service_members = relationship("ServiceMember", back_populates="member")
 
     def remove_role(self, role: UserRoles):
         del self.roles[self.roles.index(role)]
